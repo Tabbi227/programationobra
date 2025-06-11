@@ -1,133 +1,85 @@
-let piezas = [];
-let paletaColores = [
-  "rgb(22, 52, 64)",
-  "rgb(57, 64, 57)",
-  "rgb(191, 128, 11)",
-  "rgb(166, 95, 8)",
-  "rgb(166, 39, 10)",
-  "rgb(8, 66, 89)",
-  "rgb(57, 64, 57)",
-  "rgb(166, 114, 18)",
-  "rgb(166, 95, 8)",
-  "rgb(166, 39, 10)",
-  "rgb(28, 37, 38)",
-  "rgb(140, 82, 11)",
-  "rgb(166, 39, 10)",
-  "rgb(140, 35, 11)",
-  "rgb(166, 114, 18)",
-  "rgb(89, 72, 39)",
-  "rgb(140, 35, 11)"
-];
+//RESPETAR EL FIGMA PORFAVOR!!!!!
+//https://www.figma.com/design/JpiEBklmctotFqfmWwpXui/TP1-COMPUTACION?node-id=0-1&t=58OAllBNU5Dp0DJa-1
+
+const agudos = []
+const graves = []
+const cortos = []
+const largos = []
+
+/*function preload () {
+   for (let i = 0; i < 4; i++) {
+    agudos[i] = loadImage(`img/Agudas/agudo${i}.png`); 
+  }
+  for (let i = 0; i < 3; i++) {
+    graves[i] = loadImage(`img/Graves/grave${i}.png`);
+  }
+  for (let i = 0; i < 3; i++) {
+    cortos[i] = loadImage(`img/DuracionCorta/corta${i}.png`);
+  }
+  for (let i = 0; i < 4; i++) {
+    largos[i] = loadImage(`img/DuracionLarga/larga${i}.png`);
+  }
+}*/
+
+//si cargamos en el preload se rompe
+//habria que empezar a laburar con los microfonos
+//para que las imagenes se carguen unicamente cuando hacemos los sonidos y que queden cargadas
+
 function setup() {
-  createCanvas(720,1020);
+  createCanvas(656, 1020);
   background(255);
   angleMode(DEGREES);
   noStroke();
+  for (let i = 0; i < 4; i++) {
+    agudos[i] = loadImage("img/Agudas/agudo" + i + ".png");
+  }
+  for (let i = 0; i < 3; i++) {
+    graves[i] = loadImage("img/Graves/grave" + i + ".png");
+  }
+  for (let i = 0; i < 3; i++) {
+    cortos[i] = loadImage("img/DuracionCorta/corta" + i + ".png");
+  }
+  for (let i = 0; i < 4; i++) {
+    largos[i] = loadImage("img/DuracionLarga/larga" + i + ".png");
+  }
 }
 
 function draw() {
   background(255);
-  piezas.sort((a, b) => a.capa - b.capa);
-  for (let p of piezas) {
-    p.dibujar();
+  if (agudos[0]) {
+    image(agudos[0], 100, 100, 200, 200);
   }
-}
-function mousePressed() {
-  let nuevaPieza;
-
-  if (keyIsDown(SHIFT)) {
-    nuevaPieza = crearPiezaAguda();         // AGUDO
-  } else if (keyIsDown(CONTROL)) {
-    nuevaPieza = crearPiezaTranslucida();   // VOLUMEN BAJO
-  } else if (keyIsDown(ALT)) {
-    nuevaPieza = crearPiezaContundente();   // VOLUMEN ALTO
-  } else {
-    nuevaPieza = crearPiezaGrave();         // GRAVE
-  }
-  piezas.push(nuevaPieza);
-}
-function keyPressed() {
-  if (key === 's' || key === 'S') {
-    piezas = []; // SHHH: desarma todo
-  }
-}
-function colorAleatorio() {
-  return color(paletaColores[int(random(paletaColores.length))]);
-}
-function crearPiezaAguda() {
-  return {
-    capa: 4,
-    dibujar: function() {
-      fill(colorAleatorio());
-      push();
-      translate(random(width), random(height));
-      rotate(random(45, 135));
-      triangle(0, 0, 20, 50, 40, 0);
-      pop();
-    }
-  };
-}
-function crearPiezaTranslucida() {
-  return {
-    capa: 2,
-    dibujar: function() {
-      let c = colorAleatorio();
-      c.setAlpha(60);
-      fill(c);
-      ellipse(random(width), random(height), random(60, 100));
-    }
-  };
 }
 
-function crearPiezaContundente() {
-  let puntos = [];
-  let x = random(width);
-  let y = random(height);
-  let vx = random(-0.5, 0.5);
-  let vy = random(-0.5, 0.5);
-  let tam = random(50, 200);
-  for (let i = 0; i < 5; i++) {
-    puntos.push({
-      dx: random(-tam, tam),
-      dy: random(-tam, tam)
+//SOLUCION DE GPT, PERO SIN SONIDO, PROBAR SI QUIEREN, SINO IR DIRECTO A LABURAR CON EL MIC
+
+/*
+Opción 2: Cargar imágenes en setup() y dibujar solo cuando están listas
+Si querés seguir cargando en setup(), necesitás esperar a que se carguen con un callback:
+
+js
+
+const agudos = [];
+let agudosCargados = 0;
+function setup() {
+  createCanvas(656, 1020);
+  angleMode(DEGREES);
+  noStroke();
+  for (let i = 0; i < 4; i++) {
+    loadImage("img/Agudas/agudo" + i + ".png", img => {
+      agudos[i] = img;
+      agudosCargados++;
     });
   }
-  return {
-    capa: 5,
-    x: x,
-    y: y,
-    vx: vx,
-    vy: vy,
-    puntos: puntos,
-    c: colorAleatorio(),
-    dibujar: function() {
-      fill(this.c);
-      beginShape();
-      for (let p of this.puntos) {
-        vertex(this.x + p.dx, this.y + p.dy);
-      }
-      endShape(CLOSE);
-      this.x += this.vx;
-      this.y += this.vy;
-    }
-  };
 }
-
-function crearPiezaGrave() {
-  return {
-    capa: 1,
-    x: random(width),
-    y: random(height),
-    w: random(100, 150),
-    h: random(100, 150),
-    vx: random(-1, 1), 
-    vy: random(-1, 1), 
-    c: colorAleatorio(),
-    dibujar: function() {
-      fill(this.c);
-      rect(this.x, this.y, this.w, this.h);
-      this.x += this.vx;
-      this.y += this.vy;
-    }
-  };
+function draw() {
+  background(255);
+  if (agudosCargados === 4) {
+    image(agudos[0], 100, 100, 200, 200);
+  } else {
+    fill(0);
+    textSize(24);
+    text("Cargando imágenes...", 50, height / 2);
+  }
 }
+*/
