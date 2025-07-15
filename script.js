@@ -1,133 +1,207 @@
-let piezas = [];
-let paletaColores = [
-  "rgb(22, 52, 64)",
-  "rgb(57, 64, 57)",
-  "rgb(191, 128, 11)",
-  "rgb(166, 95, 8)",
-  "rgb(166, 39, 10)",
-  "rgb(8, 66, 89)",
-  "rgb(57, 64, 57)",
-  "rgb(166, 114, 18)",
-  "rgb(166, 95, 8)",
-  "rgb(166, 39, 10)",
-  "rgb(28, 37, 38)",
-  "rgb(140, 82, 11)",
-  "rgb(166, 39, 10)",
-  "rgb(140, 35, 11)",
-  "rgb(166, 114, 18)",
-  "rgb(89, 72, 39)",
-  "rgb(140, 35, 11)"
-];
+let monitor = false;
+
+let mic;
+let audioContext;
+let gestorI, gestorPitch;
+let pitch; 
+
+let minimoI = 0.0;
+let maximoI = 0.5;
+
+let minNota = 30;
+let maxNota = 90;
+
+let notaAcustica = 0.60; 
+let duracionAcustica = 1.5;  
+let umbral = 0.03;
+
+let c;
+
+let multi = 4;
+let antesHabiaSonido = false;
+
+const model_url =
+  "https://cdn.jsdelivr.net/gh/ml5js/ml5-data-and-models/models/pitch-detection/crepe/";
+
+let tiempoInicio = 0;
+let imagenesAgudas = [];
+let imagenesGraves = [];
+let imagenesCortas = [];
+let imagenesLargas = [];
+
+let indiceImagen = 0;
+
+function preload() {
+  for (let i = 0; i < 7; i++) {
+    imagenesAgudas.push(loadImage(`img/Agudas/agudo0${i}.png`));
+    imagenesGraves.push(loadImage(`img/Graves/grave0${i}.png`));
+    imagenesCortas.push(loadImage(`img/Corto/corta0${i}.png`));
+    imagenesLargas.push(loadImage(`img/Largo/larga0${i}.png`));
+  }
+}
+
 function setup() {
-  createCanvas(720,1020);
+  createCanvas(656, 1020);
   background(255);
   angleMode(DEGREES);
   noStroke();
+
+  audioContext = getAudioContext();
+  mic = new p5.AudioIn();
+  mic.start(startPitch);
+
+  userStartAudio();
+
+  gestorI = new GestorSenial(minimoI, maximoI);
+  gestorPitch = new GestorSenial(minNota, maxNota);
 }
 
 function draw() {
-  background(255);
-  piezas.sort((a, b) => a.capa - b.capa);
-  for (let p of piezas) {
-    p.dibujar();
-  }
-}
-function mousePressed() {
-  let nuevaPieza;
+  let intensidad = mic.getLevel();
+  gestorI.actualizar(intensidad);
 
-  if (keyIsDown(SHIFT)) {
-    nuevaPieza = crearPiezaAguda();         // AGUDO
-  } else if (keyIsDown(CONTROL)) {
-    nuevaPieza = crearPiezaTranslucida();   // VOLUMEN BAJO
-  } else if (keyIsDown(ALT)) {
-    nuevaPieza = crearPiezaContundente();   // VOLUMEN ALTO
-  } else {
-    nuevaPieza = crearPiezaGrave();         // GRAVE
-  }
-  piezas.push(nuevaPieza);
-}
-function keyPressed() {
-  if (key === 's' || key === 'S') {
-    piezas = []; // SHHH: desarma todo
-  }
-}
-function colorAleatorio() {
-  return color(paletaColores[int(random(paletaColores.length))]);
-}
-function crearPiezaAguda() {
-  return {
-    capa: 4,
-    dibujar: function() {
-      fill(colorAleatorio());
-      push();
-      translate(random(width), random(height));
-      rotate(random(45, 135));
-      triangle(0, 0, 20, 50, 40, 0);
-      pop();
-    }
-  };
-}
-function crearPiezaTranslucida() {
-  return {
-    capa: 2,
-    dibujar: function() {
-      let c = colorAleatorio();
-      c.setAlpha(60);
-      fill(c);
-      ellipse(random(width), random(height), random(60, 100));
-    }
-  };
-}
+  let haySonido = gestorI.filtrada > umbral;
+  let empezoElSonido = !antesHabiaSonido && haySonido;
+  let terminaElSonido = antesHabiaSonido && !haySonido;
 
-function crearPiezaContundente() {
-  let puntos = [];
-  let x = random(width);
-  let y = random(height);
-  let vx = random(-0.5, 0.5);
-  let vy = random(-0.5, 0.5);
-  let tam = random(50, 200);
-  for (let i = 0; i < 5; i++) {
-    puntos.push({
-      dx: random(-tam, tam),
-      dy: random(-tam, tam)
-    });
+  if (empezoElSonido) {
+    tiempoInicio = millis();
   }
-  return {
-    capa: 5,
-    x: x,
-    y: y,
-    vx: vx,
-    vy: vy,
-    puntos: puntos,
-    c: colorAleatorio(),
-    dibujar: function() {
-      fill(this.c);
-      beginShape();
-      for (let p of this.puntos) {
-        vertex(this.x + p.dx, this.y + p.dy);
-      }
-      endShape(CLOSE);
-      this.x += this.vx;
-      this.y += this.vy;
+
+  if (terminaElSonido) {
+    let duracion = (millis() - tiempoInicio) / 1000.0;
+    let notaActual = gestorPitch.filtrada;
+    imageMode(CENTER);
+    let x = width / 2;
+    let y = height / 2;
+    
+
+    // IMAGEN AGUDA
+    if (notaActual > notaAcustica) {
+      let i = indiceImagen % imagenesAgudas.length;
+      let paleta = random([colorBlancoGris, colorNegroGris]);
+      let [r, g, b] = paleta(notaActual, duracion);
+      tint(r, g, b, 200);
+      image(imagenesAgudas[i], x, y);
+      console.log(`Nota aguda: ${notaActual.toFixed(2)}, Duración: ${duracion.toFixed(2)}`);
     }
-  };
+
+    // IMAGEN GRAVE
+    if (notaActual < notaAcustica) {
+      let i = indiceImagen % imagenesGraves.length;
+      let paleta = random([colorAzulOscuro, colorAzulClaro]);
+      let [r, g, b] = paleta(notaActual, duracion);
+      tint(r, g, b, 200);
+      image(imagenesGraves[i], x, y);
+      console.log(`Nota grave: ${notaActual.toFixed(2)}, Duración: ${duracion.toFixed(2)}`);
+    }
+
+    // IMAGEN CORTA
+    if (duracion < duracionAcustica) {
+      let i = indiceImagen % imagenesCortas.length;
+      let paleta = random([colorOcre, colorNaranja]);
+      let [r, g, b] = paleta(notaActual, duracion);
+      tint(r, g, b, 200);
+      image(imagenesCortas[i], x, y);
+      console.log(`Duración corta: ${duracion.toFixed(2)}s`);
+    }
+
+    // IMAGEN LARGA
+    if (duracion > duracionAcustica) {
+      let i = indiceImagen % imagenesLargas.length;
+      let paleta = random([colorBordo, colorRojo]);
+      let [r, g, b] = paleta(notaActual, duracion);
+      tint(r, g, b, 200);
+      image(imagenesLargas[i], x, y);
+      console.log(`Duración larga: ${duracion.toFixed(2)}s`);
+    }
+
+    tint(255, 255);
+    indiceImagen++;
+  }
+
+  if (monitor === true) {
+    gestorI.dibujar(100, 100);
+    gestorPitch.dibujar(100, 300);
+  }
+
+  antesHabiaSonido = haySonido;
 }
 
-function crearPiezaGrave() {
-  return {
-    capa: 1,
-    x: random(width),
-    y: random(height),
-    w: random(100, 150),
-    h: random(100, 150),
-    vx: random(-1, 1), 
-    vy: random(-1, 1), 
-    c: colorAleatorio(),
-    dibujar: function() {
-      fill(this.c);
-      rect(this.x, this.y, this.w, this.h);
-      this.x += this.vx;
-      this.y += this.vy;
+function startPitch() {
+  pitch = ml5.pitchDetection(model_url, audioContext, mic.stream, modelLoaded);
+}
+
+function modelLoaded() {
+  getPitch();
+}
+
+function getPitch() {
+  pitch.getPitch(function (err, frequency) {
+    if (frequency) {
+      let numeroDeNota = freqToMidi(frequency);
+      gestorPitch.actualizar(numeroDeNota);
     }
-  };
+    getPitch();
+  });
+}
+
+
+function colorBordo(nota, duracion) {
+  let r = map(nota, 40, 80, 88, 40);
+  let g = map(nota, 40, 80, 27, 0);
+  let b = map(nota, 40, 80, 33, 20);
+  return [r, g, b];
+}
+
+function colorRojo(nota, duracion) {
+  let r = map(nota, 40, 80, 154, 80);
+  let g = map(nota, 40, 80, 46, 20);
+  let b = map(nota, 40, 80, 37, 20);
+  return [r, g, b];
+}
+
+function colorAzulOscuro(nota, duracion) {
+  let r = map(nota, 40, 80, 24, 10);
+  let g = map(nota, 40, 80, 48, 30);
+  let b = map(nota, 40, 80, 70, 50);  
+  return [r, g, b];
+}
+
+function colorAzulClaro(nota, duracion) {
+  let r = map(nota, 40, 80, 150, 110);  
+  let g = map(nota, 40, 80, 160, 120);   
+  let b = map(nota, 40, 80, 180, 140);   
+  return [r, g, b];
+}
+
+
+
+function colorOcre(nota, duracion) {
+  let r = map(nota, 40, 80, 191, 120);
+  let g = map(nota, 40, 80, 136, 80);
+  let b = map(nota, 40, 80, 60, 30);
+  return [r, g, b];
+}
+
+function colorNaranja(nota, duracion) {
+  let r = map(nota, 40, 80, 255, 180);  
+  let g = map(nota, 40, 80, 100, 50);   
+  let b = map(nota, 40, 80, 20, 10);   
+  return [r, g, b];
+}
+
+
+function colorNegroGris(nota, duracion) {
+  let r = map(nota, 40, 80, 40, 10);
+  let g = map(nota, 40, 80, 40, 10);
+  let b = map(nota, 40, 80, 40, 10);
+  return [r, g, b];
+}
+
+function colorBlancoGris(nota, duracion) {
+  let r = map(nota, 40, 80, 228, 180);
+  let g = map(nota, 40, 80, 227, 180);
+  let b = map(nota, 40, 80, 224, 180);
+  return [r, g, b];
 }
